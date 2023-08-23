@@ -29,6 +29,12 @@ SpriteSheetPropertyGroup = type(
                 default=24,
                 min=1
             ),
+            "autoRotate": bpy.props.IntProperty(
+                name="Auto-Rotate",
+                description="Automatically rotate the model.  Repeats until the model has done a full rotation.  Leave at 0 for no rotation.",
+                default=0,
+                min=0
+            ),
             "onlyRenderMarkedFrames": bpy.props.BoolProperty(
                 name="Only render marked frames",
                 description="Only renders frames that have an Action Pose Marker, allowing you to choose which frames to include with a sprite sheet. To add marked frames make sure 'Show Pose Markers' is selected in the Action Editor.\n\nNote: If no markers are specified this will render the action normally.",

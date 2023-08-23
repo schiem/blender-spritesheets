@@ -8,6 +8,7 @@ import subprocess
 import json
 from properties.SpriteSheetPropertyGroup import SpriteSheetPropertyGroup
 from properties.ProgressPropertyGroup import ProgressPropertyGroup
+from math import radians
 
 platform = platform.system()
 if platform == "Windows":
@@ -31,8 +32,29 @@ class RenderSpriteSheet(bpy.types.Operator):
         progressProps.success = False
         progressProps.actionTotal = len(bpy.data.actions)
 
+        if props.autoRotate == 0:
+            self.renderSpriteSheet(scene, props, progressProps)
+        else:
+            originalRotateZ = props.target.rotation_euler.z
+            for i in range(0, 360, props.autoRotate):
+                appendName = f'_{i}_deg'
+                props.target.rotation_euler.z = originalRotateZ + radians(i)
+                self.renderSpriteSheet(scene, props, progressProps, appendName)
+
+            props.target.rotation_euler.z = originalRotateZ
+
+
+        progressProps.rendering = False
+        progressProps.success = True
+        shutil.rmtree(bpy.path.abspath(os.path.join(props.outputPath, "temp")))
+        return {'FINISHED'}
+
+    def renderSpriteSheet(self, scene, props, progressProps, appendToName = ""):
         animation_descs = []
-        frame_end = 0
+
+        # Frames start at 0
+        # A single frame animation would end at frame 0
+        frame_end = -1
 
         objectToRender = props.target
         for index, action in enumerate(bpy.data.actions):
@@ -41,14 +63,15 @@ class RenderSpriteSheet(bpy.types.Operator):
             objectToRender.animation_data.action = action
 
             count, _, _ = frame_count(action.frame_range)
-            frame_end += count
-            animation_descs.append({
-                "name": action.name,
-                "end": frame_end,
-            })
+            if count > 0:
+                frame_end += count
+                animation_descs.append({
+                    "name": action.name,
+                    "end": frame_end,
+                })
 
-            self.processAction(action, scene, props,
-                               progressProps, objectToRender)
+                self.processAction(action, scene, props,
+                                progressProps, objectToRender)
 
         assemblerPath = os.path.normpath(
             os.path.join(
@@ -57,7 +80,7 @@ class RenderSpriteSheet(bpy.types.Operator):
             )
         )
         print("Assembler path: ", assemblerPath)
-        subprocess.run([assemblerPath, "--root", bpy.path.abspath(props.outputPath), "--out", objectToRender.name + ".png"])
+        subprocess.run([assemblerPath, "--root", bpy.path.abspath(props.outputPath), "--out", objectToRender.name + appendToName + ".png"])
 
         json_info = {
             "name": objectToRender.name,
@@ -67,13 +90,8 @@ class RenderSpriteSheet(bpy.types.Operator):
             "animations": animation_descs,
         }
 
-        with open(bpy.path.abspath(os.path.join(props.outputPath, objectToRender.name + ".bss")), "w") as f:
+        with open(bpy.path.abspath(os.path.join(props.outputPath, objectToRender.name + appendToName + ".bss")), "w") as f:
             json.dump(json_info, f, indent='\t')
-
-        progressProps.rendering = False
-        progressProps.success = True
-        shutil.rmtree(bpy.path.abspath(os.path.join(props.outputPath, "temp")))
-        return {'FINISHED'}
 
 
     def processAction(self, action, scene, props, progressProps, objectToRender):
@@ -101,4 +119,5 @@ class RenderSpriteSheet(bpy.types.Operator):
 def frame_count(frame_range):
     frameMin = math.floor(frame_range[0])
     frameMax = math.ceil(frame_range[1])
-    return (frameMax - frameMin, frameMin, frameMax)
+    # Animation is inclusive of both upper and lower bounds, so need to add 1
+    return (frameMax - frameMin + 1, frameMin, frameMax)

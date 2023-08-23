@@ -35,6 +35,8 @@ class UI_PT_SpritePanel(bpy.types.Panel):
         row = layout.row()
         row.prop(props, "fps")
         row = layout.row()
+        row.prop(props, "autoRotate")
+        row = layout.row()
         row.prop(props, "onlyRenderMarkedFrames")
 
         layout.separator()
